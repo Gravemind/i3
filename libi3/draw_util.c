@@ -14,6 +14,7 @@
 #include <xcb/xcb.h>
 #include <xcb/xcb_aux.h>
 #include <cairo/cairo-xcb.h>
+#include <ctype.h>
 
 /* The default visual_type to use if none is specified when creating the surface. Must be defined globally. */
 xcb_visualtype_t *visual_type;
@@ -78,23 +79,17 @@ void draw_util_surface_set_size(surface_t *surface, int width, int height) {
     cairo_xcb_surface_set_size(surface->surface, width, height);
 }
 
-/*
- * Parses the given color in hex format to an internal color representation.
- * Note that the input must begin with a hash sign, e.g., "#3fbc59".
- *
- */
-color_t draw_util_hex_to_color(const char *color) {
-    if (strlen(color) < 6 || color[0] != '#') {
-        ELOG("Could not parse color: %s\n", color);
-        return draw_util_hex_to_color("#A9A9A9");
-    }
-
+/* Helper to parse hex color when `*pcolor` is known to be valid */
+static color_t _draw_util_parse_valid_hex_color(const char **pcolor) {
+    const char *color = *pcolor;
     char alpha[2];
-    if (strlen(color) == strlen("#rrggbbaa")) {
+    if (strlen(color) >= strlen("#rrggbbaa") && isxdigit(color[7])) {
         alpha[0] = color[7];
         alpha[1] = color[8];
+        *pcolor += strlen("#rrggbbaa");
     } else {
         alpha[0] = alpha[1] = 'F';
+        *pcolor += strlen("#rrggbb");
     }
 
     char groups[4][3] = {
@@ -109,6 +104,52 @@ color_t draw_util_hex_to_color(const char *color) {
         .blue = strtol(groups[2], NULL, 16) / 255.0,
         .alpha = strtol(groups[3], NULL, 16) / 255.0,
         .colorpixel = get_colorpixel(color)};
+}
+
+/*
+ * Parses the given color in hex format to an internal color representation.
+ * Note that the input must begin with a hash sign, e.g., "#3fbc59".
+ *
+ */
+color_t draw_util_hex_to_color(const char *color) {
+    if (strlen(color) < 6 || color[0] != '#') {
+        ELOG("Could not parse color: %s\n", color);
+        return draw_util_hex_to_color("#A9A9A9");
+    }
+    return _draw_util_parse_valid_hex_color(&color);
+}
+
+/*
+ * Like `draw_util_hex_to_color` but meant to be re-entrant to parse multiple
+ * space separated colors.
+ *
+ * Outputs the color in `outcolor`, advances `pcolor`, and returns false with no
+ * changes if it wasn't a color (e.g. found invalid character, or empty string)
+ *
+ * Additionally, it skips leading white-spaces, and parses "-" as valid and leaves
+ * `outcolor` untouched.
+ *
+ */
+bool draw_util_prase_next_hex_to_color(const char **pcolor, color_t *outcolor) {
+    const char *color = *pcolor;
+    if (color == NULL)
+        return false;
+    while (isspace(color[0])) {
+        ++color;
+    }
+    /* Skip */
+    if (color[0] == '-') {
+        ++color;
+        *pcolor = color;
+        return true;
+    }
+    if (strlen(color) < 6 || color[0] != '#') {
+        ELOG("Could not parse next color: %s\n", color);
+        return false;
+    }
+    *pcolor = color;
+    *outcolor = _draw_util_parse_valid_hex_color(pcolor);
+    return true;
 }
 
 /*

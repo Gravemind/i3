@@ -224,6 +224,20 @@ static int config_string_cb(void *params_, const unsigned char *val, size_t _len
         return 1;
     }
 
+    if (!strcmp(cur_key, "progress_type")) {
+        DLOG("progress_type = %.*s\n", len, val);
+        if (len == strlen("top_bar") && !strncmp((const char *)val, "top_bar", strlen("top_bar"))) {
+            config.progress_type = PT_TOP_BAR;
+            return 1;
+        }
+        if (len == strlen("bottom_bar") && !strncmp((const char *)val, "bottom_bar", strlen("bottom_bar"))) {
+            config.progress_type = PT_BOTTOM_BAR;
+            return 1;
+        }
+        config.progress_type = PT_NONE;
+        return 1;
+    }
+
 #define COLOR(json_name, struct_name)                                  \
     do {                                                               \
         if (!strcmp(cur_key, #json_name)) {                            \
@@ -342,6 +356,18 @@ static int config_integer_cb(void *params_, long long val) {
     if (!strcmp(cur_key, "modifier")) {
         DLOG("modifier = %lld\n", val);
         config.modifier = (uint32_t)val;
+        return 1;
+    }
+
+    if (!strcmp(cur_key, "progress_margin")) {
+        DLOG("progress_bar_margin = %lld\n", val);
+        config.progress_margin = val;
+        return 1;
+    }
+
+    if (!strcmp(cur_key, "progress_height")) {
+        DLOG("progress_bar_height = %lld\n", val);
+        config.progress_height = val;
         return 1;
     }
 

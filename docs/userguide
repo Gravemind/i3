@@ -1646,6 +1646,25 @@ bar {
 }
 -----------------------------
 
+=== Progress indicator
+
+Enables the progress bars for each module when reported by the status program.
+
+The default is disabled.
+
+*Syntax*:
+-----------------------------
+progress none
+progress top_bar|bottom_bar [margin height]
+-----------------------------
+
+*Example*:
+-----------------------------
+bar {
+    progress top_bar 1 1
+}
+-----------------------------
+
 === Colors
 
 As with i3, colors are in HTML hex format (#rrggbb). The following colors can

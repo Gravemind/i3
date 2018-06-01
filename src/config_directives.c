@@ -534,6 +534,20 @@ CFGFUN(bar_i3bar_command, const char *i3bar_command) {
     current_bar->i3bar_command = sstrdup(i3bar_command);
 }
 
+CFGFUN(bar_progress, const char *type, const long margin, const long height) {
+    if (type == NULL || strcmp(type, "none") == 0)
+        current_bar->progress_type = PT_NONE;
+    else if (strcmp(type, "top_bar") == 0)
+        current_bar->progress_type = PT_TOP_BAR;
+    else if (strcmp(type, "bottom_bar") == 0)
+        current_bar->progress_type = PT_BOTTOM_BAR;
+
+    if (margin >= 0)
+        current_bar->progress_margin = margin;
+    if (height >= 0)
+        current_bar->progress_height = height;
+}
+
 CFGFUN(bar_color, const char *colorclass, const char *border, const char *background, const char *text) {
 #define APPLY_COLORS(classname)                                           \
     do {                                                                  \

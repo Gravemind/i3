@@ -87,6 +87,7 @@ CFGFUN(bar_wheel_down_cmd, const char *command);
 CFGFUN(bar_bindsym, const char *button, const char *release, const char *command);
 CFGFUN(bar_position, const char *position);
 CFGFUN(bar_i3bar_command, const char *i3bar_command);
+CFGFUN(bar_progress, const char *type, const long margin, const long height);
 CFGFUN(bar_color, const char *colorclass, const char *border, const char *background, const char *text);
 CFGFUN(bar_socket_path, const char *socket_path);
 CFGFUN(bar_tray_output, const char *output);

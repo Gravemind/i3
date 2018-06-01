@@ -58,6 +58,12 @@ typedef struct config_t {
     char *fontname;
     i3String *separator_symbol;
 
+    enum { PT_NONE = 0,
+           PT_TOP_BAR = 1,
+           PT_BOTTOM_BAR = 2 } progress_type;
+    int32_t progress_margin;
+    int32_t progress_height;
+
     TAILQ_HEAD(tray_outputs_head, tray_output_t)
     tray_outputs;
 

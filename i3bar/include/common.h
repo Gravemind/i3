@@ -51,6 +51,9 @@ struct status_block {
     char *background;
     char *border;
 
+    char *progress_colors;
+    uint32_t progress_plus_one;
+
     /* min_width can be specified either as a numeric value (in pixels) or as a
      * string. For strings, we set min_width to the measured text width of
      * min_width_str. */

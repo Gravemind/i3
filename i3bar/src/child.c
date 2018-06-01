@@ -218,6 +218,10 @@ static int stdin_string(void *context, const unsigned char *val, size_t len) {
         sasprintf(&(ctx->block.border), "%.*s", len, val);
         return 1;
     }
+    if (strcasecmp(ctx->last_map_key, "progress_colors") == 0) {
+        sasprintf(&(ctx->block.progress_colors), "%.*s", len, val);
+        return 1;
+    }
     if (strcasecmp(ctx->last_map_key, "markup") == 0) {
         ctx->block.pango_markup = (len == strlen("pango") && !strncasecmp((const char *)val, "pango", strlen("pango")));
         return 1;
@@ -256,6 +260,10 @@ static int stdin_integer(void *context, long long val) {
     }
     if (strcasecmp(ctx->last_map_key, "separator_block_width") == 0) {
         ctx->block.sep_block_width = (uint32_t)val;
+        return 1;
+    }
+    if (strcasecmp(ctx->last_map_key, "progress") == 0) {
+        ctx->block.progress_plus_one = (uint32_t)MIN(MAX(0, (int32_t)val), 100) + 1;
         return 1;
     }
 
