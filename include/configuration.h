@@ -336,6 +336,17 @@ struct Barconfig {
     /** Enable verbose mode? Useful for debugging purposes. */
     bool verbose;
 
+    /** Progress indicator type (none by default) */
+    enum { PT_NONE = 0,
+           PT_TOP_BAR = 1,
+           PT_BOTTOM_BAR = 2 } progress_type;
+
+    /** Progress indicator margin in pixel.. */
+    uint32_t progress_margin;
+
+    /** Progress indicator height in pixel. */
+    uint32_t progress_height;
+
     struct bar_colors {
         char *background;
         char *statusline;

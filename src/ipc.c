@@ -831,6 +831,23 @@ static void dump_bar_config(yajl_gen gen, Barconfig *config) {
     ystr("verbose");
     y(bool, config->verbose);
 
+    if (config->progress_type != PT_NONE) {
+        ystr("progress_type");
+        switch (config->progress_type) {
+            default:
+            case PT_TOP_BAR:
+                ystr("top_bar");
+                break;
+            case PT_BOTTOM_BAR:
+                ystr("bottom_bar");
+                break;
+        }
+        ystr("progress_margin");
+        y(integer, config->progress_margin);
+        ystr("progress_height");
+        y(integer, config->progress_height);
+    }
+
 #undef YSTR_IF_SET
 #define YSTR_IF_SET(name)              \
     do {                               \

@@ -610,6 +610,19 @@ void draw_util_surface_free(xcb_connection_t *conn, surface_t *surface);
  */
 color_t draw_util_hex_to_color(const char *color);
 
+/*
+ * Like `draw_util_hex_to_color` but meant to be re-entrant to parse multiple
+ * space separated colors.
+ *
+ * Outputs the color in `outcolor`, advances `pcolor`, and returns false with no
+ * changes if it wasn't a color (e.g. found invalid character, or empty string)
+ *
+ * Additionally, it skips leading white-spaces, and parses "-" as valid and leaves
+ * `outcolor` untouched.
+ *
+ */
+bool draw_util_prase_next_hex_to_color(const char **color, color_t *outcolor);
+
 /**
  * Draw the given text using libi3.
  * This function also marks the surface dirty which is needed if other means of

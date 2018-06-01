@@ -490,6 +490,7 @@ state BAR:
   'strip_workspace_numbers' -> BAR_STRIP_WORKSPACE_NUMBERS
   'strip_workspace_name' -> BAR_STRIP_WORKSPACE_NAME
   'verbose'                -> BAR_VERBOSE
+  'progress'               -> BAR_PROGRESS
   'colors'                 -> BAR_COLORS_BRACE
   '}'
       -> call cfg_bar_finish(); INITIAL
@@ -612,6 +613,22 @@ state BAR_STRIP_WORKSPACE_NAME:
 state BAR_VERBOSE:
   value = word
       -> call cfg_bar_verbose($value); BAR
+
+state BAR_PROGRESS:
+  progress_type = 'none'
+      -> call cfg_bar_progress($progress_type, -1, -1); BAR
+  progress_type = 'top_bar', 'bottom_bar'
+      -> BAR_PROGRESS_BAR_MARGIN
+
+state BAR_PROGRESS_BAR_MARGIN:
+  progress_bar_margin = number
+      -> BAR_PROGRESS_BAR_HEIGHT
+  end
+      -> call cfg_bar_progress($progress_type, -1, -1); BAR
+
+state BAR_PROGRESS_BAR_HEIGHT:
+  progress_bar_height = number
+      -> call cfg_bar_progress($progress_type, &progress_bar_margin, &progress_bar_height); BAR
 
 state BAR_COLORS_BRACE:
   end

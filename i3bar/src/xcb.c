@@ -304,6 +304,38 @@ static void draw_statusline(i3_output *output, uint32_t clip_left, bool use_focu
                                 bar_height - has_border * logical_px(block->border_bottom + block->border_top) - logical_px(2));
         }
 
+        /* Solid progress bar, top or bottom */
+        if (block->progress_plus_one > 0 && (config.progress_type == PT_TOP_BAR || config.progress_type == PT_BOTTOM_BAR)) {
+            /* Parse colors: "foreground [background]" */
+            color_t pb_fg = fg_color;
+            color_t pb_bg = bg_color;
+            const char *colors = block->progress_colors;
+            if (draw_util_prase_next_hex_to_color(&colors, &pb_fg)) {
+                draw_util_prase_next_hex_to_color(&colors, &pb_bg);
+            }
+
+            /* Draw the progress bar */
+            int progress_percent = block->progress_plus_one - 1;
+            int pb_margin = logical_px(config.progress_margin);
+            int pb_height = logical_px(config.progress_height);
+            int offset_y = (config.progress_type == PT_TOP_BAR ? pb_margin : bar_height - pb_height - pb_margin);
+            int expand = 1; /* add 1 pixel width on each sides */
+            int full_width = full_render_width + logical_px(expand * 2);
+            int progress_width = progress_percent * full_width / 100;
+            if (progress_width > 0) {
+                draw_util_rectangle(&output->statusline_buffer, pb_fg,
+                                    x - logical_px(expand), offset_y,
+                                    progress_width,
+                                    pb_height);
+            }
+            if (progress_width < full_width) {
+                draw_util_rectangle(&output->statusline_buffer, pb_bg,
+                                    x - logical_px(1) + progress_width, offset_y,
+                                    full_width - progress_width,
+                                    pb_height);
+            }
+        }
+
         draw_util_text(text, &output->statusline_buffer, fg_color, bg_color,
                        x + render->x_offset + has_border * logical_px(block->border_left),
                        bar_height / 2 - font.height / 2,
