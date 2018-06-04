@@ -69,6 +69,7 @@ struct i3_output {
     bool statusline_short_text;
     /* The actual window on which we draw. */
     surface_t bar;
+    bool bar_minimized;
 
     struct ws_head* workspaces;  /* The workspaces on this output */
     struct tc_head* trayclients; /* The tray clients on this output */

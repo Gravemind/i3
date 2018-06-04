@@ -47,6 +47,10 @@ enum {
     NUM_ATOMS
 };
 
+int minimized_offset = 20;
+int minimized_height = 1;
+bool minimize_mode = true;
+
 xcb_intern_atom_cookie_t atom_cookies[NUM_ATOMS];
 xcb_atom_t atoms[NUM_ATOMS];
 
@@ -328,19 +332,21 @@ void draw_statusline(i3_output *output, uint32_t clip_left, bool use_focus_color
             int progress_percent = block->progress_plus_one - 1;
             int pb_margin = logical_px(config.progress_margin);
             int pb_height = logical_px(config.progress_height);
+            //int full_render_width = render->width + render->x_offset + render->x_append;
+            int offset_x = x + render->x_offset;
             int offset_y = (config.progress_type == PT_TOP_BAR ? pb_margin : bar_height - pb_height - pb_margin);
             int expand = 1; /* add 1 pixel width on each sides */
-            int full_width = full_render_width + logical_px(expand * 2);
+            int full_width = render->width/*full_render_width*/ + logical_px(expand * 2);
             int progress_width = progress_percent * full_width / 100;
             if (progress_width > 0) {
                 draw_util_rectangle(&output->statusline_buffer, pb_fg,
-                                    x - logical_px(expand), offset_y,
+                                    offset_x - logical_px(expand), offset_y,
                                     progress_width,
                                     pb_height);
             }
             if (progress_width < full_width) {
                 draw_util_rectangle(&output->statusline_buffer, pb_bg,
-                                    x - logical_px(1) + progress_width, offset_y,
+                                    offset_x - logical_px(1) + progress_width, offset_y,
                                     full_width - progress_width,
                                     pb_height);
             }
@@ -363,8 +369,17 @@ void draw_statusline(i3_output *output, uint32_t clip_left, bool use_focus_color
  * Hides all bars (unmaps them)
  *
  */
+void minimize_bars(void);
+
 void hide_bars(void) {
+
     if ((config.hide_on_modifier == M_DOCK) || (config.hidden_state == S_SHOW && config.hide_on_modifier == M_HIDE)) {
+        return;
+    }
+
+    if (minimize_mode)
+    {
+        minimize_bars();
         return;
     }
 
@@ -376,6 +391,54 @@ void hide_bars(void) {
         xcb_unmap_window(xcb_connection, walk->bar.id);
     }
     stop_child();
+}
+
+void minimize_bars(void) {
+    /* if (config.hide_on_modifier != M_HIDE) { */
+    /*     return; */
+    /* } */
+
+    //fprintf(stderr, "BAR minimize\n");
+
+    i3_output *walk;
+    xcb_void_cookie_t cookie;
+    uint32_t mask;
+    uint32_t values[5];
+
+    cont_child();
+
+    SLIST_FOREACH(walk, outputs, slist) {
+        if (!walk->active) {
+            continue;
+        }
+        if (walk->bar.id == XCB_NONE) {
+            continue;
+        }
+        walk->bar_minimized = true;
+        mask = XCB_CONFIG_WINDOW_X |
+               XCB_CONFIG_WINDOW_Y |
+               XCB_CONFIG_WINDOW_WIDTH |
+               XCB_CONFIG_WINDOW_HEIGHT |
+               XCB_CONFIG_WINDOW_STACK_MODE;
+        values[0] = walk->rect.x;
+        if (config.position == POS_TOP)
+            values[1] = walk->rect.y;
+        else
+            values[1] = walk->rect.y + walk->rect.h - minimized_height;//bar_height;
+        values[2] = walk->rect.w;
+        values[3] = minimized_height;//bar_height;
+        values[4] = XCB_STACK_MODE_ABOVE;
+        DLOG("Reconfiguring window for output %s to %d,%d\n", walk->name, values[0], values[1]);
+        cookie = xcb_configure_window_checked(xcb_connection,
+                                              walk->bar.id,
+                                              mask,
+                                              values);
+
+        if (xcb_request_failed(cookie, "Could not reconfigure window")) {
+            exit(EXIT_FAILURE);
+        }
+        xcb_map_window(xcb_connection, walk->bar.id);
+    }
 }
 
 /*
@@ -395,6 +458,7 @@ void unhide_bars(void) {
     cont_child();
 
     SLIST_FOREACH(walk, outputs, slist) {
+        walk->bar_minimized = false;
         if (walk->bar.id == XCB_NONE) {
             continue;
         }
@@ -1127,6 +1191,11 @@ void xcb_prep_cb(struct ev_loop *loop, ev_prepare *watcher, int revents) {
         exit(1);
     }
 
+    bool    changed_bars = false;
+    bool    hid_bars = false;
+
+    //XCB_XKB_NKN_DETAIL_KEYCODES
+
     while ((event = xcb_poll_for_event(xcb_connection)) != NULL) {
         if (event->response_type == 0) {
             xcb_generic_error_t *error = (xcb_generic_error_t *)event;
@@ -1142,14 +1211,22 @@ void xcb_prep_cb(struct ev_loop *loop, ev_prepare *watcher, int revents) {
 
             xcb_xkb_state_notify_event_t *state = (xcb_xkb_state_notify_event_t *)event;
             const uint32_t mod = (config.modifier & 0xFFFF);
+            //fprintf(stderr, "event %d %d\n", state->mods, state->changed);
             mod_pressed = (mod != 0 && (state->mods & mod) == mod);
             if (state->xkbType == XCB_XKB_STATE_NOTIFY && config.modifier != XCB_NONE) {
                 if (mod_pressed) {
                     activated_mode = false;
-                    unhide_bars();
+                    if (!changed_bars || hid_bars) {
+                        unhide_bars();
+                        hid_bars = false;
+                    }
                 } else if (!activated_mode) {
-                    hide_bars();
+                    if (!changed_bars || !hid_bars) {
+                        hide_bars();
+                        hid_bars = true;
+                    }
                 }
+                changed_bars = true;
             }
 
             free(event);
@@ -1625,12 +1702,13 @@ xcb_void_cookie_t config_strut_partial(i3_output *output) {
         case POS_NONE:
             break;
         case POS_TOP:
-            strut_partial.top = bar_height;
+            //
+            strut_partial.top = minimize_mode ? minimized_height : bar_height;
             strut_partial.top_start_x = output->rect.x;
             strut_partial.top_end_x = output->rect.x + output->rect.w;
             break;
         case POS_BOT:
-            strut_partial.bottom = bar_height;
+            strut_partial.bottom = minimize_mode ? minimized_height : bar_height;
             strut_partial.bottom_start_x = output->rect.x;
             strut_partial.bottom_end_x = output->rect.x + output->rect.w;
             break;
@@ -1698,7 +1776,7 @@ void reconfig_windows(bool redraw_bars) {
                                                                      depth,
                                                                      bar_id,
                                                                      xcb_root,
-                                                                     walk->rect.x, walk->rect.y + walk->rect.h - bar_height,
+                                                                     walk->rect.x, walk->rect.y + walk->rect.h - bar_height,  //
                                                                      walk->rect.w, bar_height,
                                                                      0,
                                                                      XCB_WINDOW_CLASS_INPUT_OUTPUT,
@@ -1979,29 +2057,36 @@ void draw_bars(bool unhide) {
                     fg_color = colors.urgent_ws_fg;
                     bg_color = colors.urgent_ws_bg;
                     border_color = colors.urgent_ws_border;
-                    unhide = true;
+                    if (!outputs_walk->bar_minimized)
+                        unhide = true;
                 }
+
+                //int border_top_margin = 0;
+
+                int top_margin = logical_px(1);
+                int bottom_margin = logical_px(0);
+                int border_width = logical_px(1);
 
                 /* Draw the border of the button. */
                 draw_util_rectangle(&(outputs_walk->buffer), border_color,
                                     workspace_width,
-                                    logical_px(1),
-                                    ws_walk->name_width + 2 * logical_px(ws_hoff_px) + 2 * logical_px(1),
-                                    font.height + 2 * logical_px(ws_voff_px) - 2 * logical_px(1));
+                                    top_margin,
+                                    ws_walk->name_width + 2 * logical_px(ws_hoff_px) + 2 * border_width,
+                                    font.height + 2 * logical_px(ws_voff_px) - top_margin - bottom_margin);
 
                 /* Draw the inside of the button. */
                 draw_util_rectangle(&(outputs_walk->buffer), bg_color,
-                                    workspace_width + logical_px(1),
-                                    2 * logical_px(1),
+                                    workspace_width + border_width,
+                                    top_margin + border_width,
                                     ws_walk->name_width + 2 * logical_px(ws_hoff_px),
-                                    font.height + 2 * logical_px(ws_voff_px) - 4 * logical_px(1));
+                                    font.height + 2 * logical_px(ws_voff_px) - 2 * border_width - top_margin - bottom_margin);
 
                 draw_util_text(ws_walk->name, &(outputs_walk->buffer), fg_color, bg_color,
-                               workspace_width + logical_px(ws_hoff_px) + logical_px(1),
+                               workspace_width + logical_px(ws_hoff_px) + border_width,
                                logical_px(ws_voff_px),
                                ws_walk->name_width);
 
-                workspace_width += 2 * logical_px(ws_hoff_px) + 2 * logical_px(1) + ws_walk->name_width;
+                workspace_width += 2 * logical_px(ws_hoff_px) + 2 * border_width + ws_walk->name_width;
                 if (TAILQ_NEXT(ws_walk, tailq) != NULL)
                     workspace_width += logical_px(ws_spacing_px);
             }
@@ -2086,7 +2171,16 @@ void redraw_bars(void) {
             continue;
         }
 
-        draw_util_copy_surface(&(outputs_walk->buffer), &(outputs_walk->bar), 0, 0,
+        int     y;
+        int     h;
+        if (outputs_walk->bar_minimized) {
+            y = minimized_offset;
+            h = minimized_height;
+        } else {
+            y = 0;
+            h = bar_height;
+        }
+        draw_util_copy_surface(&(outputs_walk->buffer), &(outputs_walk->bar), 0, y,
                                0, 0, outputs_walk->rect.w, outputs_walk->rect.h);
         xcb_flush(xcb_connection);
     }
